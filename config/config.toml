@@ -1,0 +1,32 @@
+[app]
+    name = "HTTPX"
+    key = "45d6d240733f97329049716db0fad2a3"
+    debug = false
+    httpAddr = "0.0.0.0"
+    httpPort = 7080
+    maxBody = 2096157
+    csrfVerify = false
+    maxWaitSecond = 120
+    viewPath = "./storage/views"
+    [app.logger]
+        level = "INFO"
+        type = "text"
+        path = ""
+        syncInterval = 200
+    [app.session]
+        isOpen = false
+        driver = "cookie"
+        timeout = 1800
+    [app.upload]
+        storage = "./storage/allimg"
+        maxSize = 2096157
+        ext = ["jpg","jpeg","gif","png"]
+[database]
+    initCap = 2 #数据库连接池 初始化连接数
+    maxCap = 5 #数据库连接池 最大连接数，超过次数后连接则实时生成实时关闭，类似php短链接
+    idleTimeout = 5 # 连接空闲释放时间
+    [database.redis]
+        [database.redis.default] #redis配置，可以配置多个，默认名称default
+        addr = "127.0.0.1:6379"
+        password = ""
+        dbnum = 1

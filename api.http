@@ -1,0 +1,13 @@
+
+
+### test
+
+POST http://127.0.0.1:7080/x
+Content-Type: application/json
+
+{
+  "rid" : "time1235",
+  "url" : "http://baidu.com",
+  "data" : "[222]",
+  "timeout" : 10
+}
