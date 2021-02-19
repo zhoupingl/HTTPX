@@ -119,7 +119,7 @@ func PushTask(rid, url, data string, timeout int) string {
 		// 构建返回结构体信息
 		resp := &PayBody{Rid: rid}
 		defer func() {
-			// todo 这里推送数据到redis list中。重点标记
+			// 将请求结果-写入redis list中
 			pushToRedisList(resp)
 		}()
 		resp.StartAt = getMs()
