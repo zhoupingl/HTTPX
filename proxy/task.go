@@ -39,6 +39,9 @@ const (
 	DEL command = "DEL"
 )
 
+
+const REST_COUNT_MAX = 3
+
 type Cmd struct {
 	*Roby
 	cmd string
@@ -65,7 +68,7 @@ func init() {
 	})
 }
 
-func PushTask(rid, url, data string, timeout int) string {
+func PushTask(rid, url, data string, timeout, resetCount int) string {
 	url = strings.TrimSpace(url)
 	// # check
 	if url == "" {
@@ -120,7 +123,12 @@ func PushTask(rid, url, data string, timeout int) string {
 		resp := &PayBody{Rid: rid}
 		defer func() {
 			// 将请求结果-写入redis list中
-			pushToRedisList(resp)
+			if resp.HttpResponse.ErrMsg == "SUCCESS" || resetCount >= REST_COUNT_MAX {
+				pushToRedisList(resp)
+			} else {
+				resetCount++
+				PushTask(rid, url, data , timeout, resetCount)
+			}
 		}()
 		resp.StartAt = getMs()
 
@@ -211,7 +219,7 @@ func HASH_XDEL(id string) {
 func RecoveryData() {
 	data := HASH_GETALL()
 	for _, roby := range data {
-		PushTask(roby.T_rid, roby.T_url, roby.T_data, roby.T_timeout)
+		PushTask(roby.T_rid, roby.T_url, roby.T_data, roby.T_timeout, 0)
 	}
 }
 

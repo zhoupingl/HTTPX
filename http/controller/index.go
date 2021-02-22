@@ -22,16 +22,9 @@ func Put(ctx *app.Context) error {
 	data := gjson.GetBytes(body, "data").String()
 	timeout := gjson.GetBytes(body, "timeout").Int()
 
-	resp := proxy.PushTask(rid, url, data, int(timeout))
+	resp := proxy.PushTask(rid, url, data, int(timeout), 0)
 
 	ctx.ToString(resp)
 
 	return nil
-}
-
-func AuthCheck(c *app.Context) error {
-
-	return c.ToJson(map[string]interface{}{
-		"auth": "auth is ok",
-	})
 }
