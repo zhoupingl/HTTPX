@@ -13,8 +13,8 @@ type worker struct {
 func NewWorker(size int) *worker {
 	p := &worker{
 		work: make(chan func()),
-		q:    make(chan func(), 1024),
-		sem:  make(chan uint8, size),
+		q:    make(chan func(), 1024*1024), // 队列长度
+		sem:  make(chan uint8, size),       // 启动worker最大数量
 	}
 
 	go p.backgroundSchedule()
