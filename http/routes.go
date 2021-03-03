@@ -14,6 +14,7 @@ func (s *Route) ServeMux() {
 	{
 		// 任务加入代理http api请求队列中
 		commonGp.POST("/x", controller.Put)
+		commonGp.POST("/printx", controller.Println)
 	}
 }
 

@@ -1,12 +1,19 @@
 package controller
 
 import (
-	"fmt"
 	"gitee.com/zhucheer/orange/app"
 	"github.com/tidwall/gjson"
 	"httpx/proxy"
 	"io/ioutil"
 )
+
+func Println(ctx *app.Context) error {
+
+	data, _ := ioutil.ReadAll(ctx.Request().Body)
+	println("\033[37m" + string(data) + "\033[0m")
+
+	return nil
+}
 
 func Put(ctx *app.Context) error {
 
@@ -14,8 +21,6 @@ func Put(ctx *app.Context) error {
 	if err != nil {
 		return err
 	}
-
-	fmt.Println(fmt.Sprintf("[INFO] \033[1;33mHttp requet body:%s\033[0m ", string(body)))
 
 	rid := gjson.GetBytes(body, "rid").String()
 	url := gjson.GetBytes(body, "url").String()

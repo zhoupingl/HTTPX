@@ -1,11 +1,13 @@
 package proxy
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"gitee.com/zhucheer/orange/database"
 	"gitee.com/zhucheer/orange/httpclient"
 	"github.com/tidwall/gjson"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -39,7 +41,6 @@ const (
 	DEL command = "DEL"
 )
 
-
 const REST_COUNT_MAX = 3
 
 type Cmd struct {
@@ -47,7 +48,7 @@ type Cmd struct {
 	cmd string
 }
 
-var RobyPipeline = make(chan *Cmd, 1000)
+var RobyPipeline = make(chan *Cmd, 100000)
 var _RobyPipelineOnce = sync.Once{}
 
 func init() {
@@ -66,6 +67,27 @@ func init() {
 			}
 		}()
 	})
+}
+
+type BufStdOut struct {
+	sync.Mutex
+	b *bufio.Writer
+}
+
+func (o *BufStdOut) WriteString(s string) (int, error) {
+
+	o.Lock()
+	defer o.Unlock()
+
+	n, err := o.b.WriteString(s)
+	if err != nil {
+		return n, err
+	}
+	return 0, o.b.WriteByte('\n')
+}
+
+var buf = BufStdOut{
+	b: bufio.NewWriter(os.Stdout),
 }
 
 func PushTask(rid, url, data string, timeout, resetCount int) string {
@@ -96,12 +118,18 @@ func PushTask(rid, url, data string, timeout, resetCount int) string {
 	}
 	RobyPipeline <- &Cmd{roby, SET}
 
-	fmt.Println("[DEBUG]  \033[31m Add job! \033[0m")
+	buf.WriteString("[DEBUG]  \033[31m Add job! \033[0m")
 	// push queue
 	w.GetWorker(url).Schedule(func() {
+
+		start := time.Now()
+		defer func() {
+			buf.WriteString(fmt.Sprintf("-------------D%d", time.Now().Sub(start).Milliseconds()))
+		}()
+
 		defer func() {
 			if e := recover(); e != nil {
-				fmt.Println(fmt.Sprintf("[DEBUG] \033[0;33m 异常:%v\033[0m ", e))
+				buf.WriteString(fmt.Sprintf("[DEBUG] \033[0;33m 异常:%v\033[0m ", e))
 			}
 		}()
 		// 记录数量
@@ -114,9 +142,9 @@ func PushTask(rid, url, data string, timeout, resetCount int) string {
 			RobyPipeline <- &Cmd{roby, DEL}
 		}()
 
-		fmt.Println(fmt.Sprintf("[DEBUG] \033[0;33m 开始任务:%v, id:%s\033[0m ", time.Now().String(), url))
+		buf.WriteString(fmt.Sprintf("[DEBUG] \033[0;33m 开始任务:%v, id:%s\033[0m ", time.Now().String(), url))
 		defer func() {
-			fmt.Println(fmt.Sprintf("[DEBUG] \033[0;33m 完成任务:%v, id:%s\033[0m ", time.Now().String(), url))
+			buf.WriteString(fmt.Sprintf("[DEBUG] \033[0;33m 完成任务:%v, id:%s\033[0m ", time.Now().String(), url))
 		}()
 
 		// 构建返回结构体信息
@@ -127,7 +155,7 @@ func PushTask(rid, url, data string, timeout, resetCount int) string {
 				pushToRedisList(resp)
 			} else {
 				resetCount++
-				PushTask(rid, url, data , timeout, resetCount)
+				PushTask(rid, url, data, timeout, resetCount)
 			}
 		}()
 		resp.StartAt = getMs()
@@ -188,14 +216,14 @@ func HASH_XSET(roby *Roby) {
 	data, _ := json.Marshal(roby)
 	db, put, err := database.GetRedis("default")
 	if err != nil {
-		fmt.Println(fmt.Sprintf("[ERROR] \033[1;33m redis pool error:%v\033[0m ", err))
+		buf.WriteString(fmt.Sprintf("[ERROR] \033[1;33m redis pool error:%v\033[0m ", err))
 		return
 	}
 	defer database.PutConn(put)
 
 	_, err = db.Do("HSET", "HTTPX-DATA", roby.T_rid, string(data))
 	if err != nil {
-		fmt.Println(fmt.Sprintf("[ERROR] \033[1;33m redis cmd HSET error:%v\033[0m ", err))
+		buf.WriteString(fmt.Sprintf("[ERROR] \033[1;33m redis cmd HSET error:%v\033[0m ", err))
 		return
 	}
 }
@@ -204,14 +232,14 @@ func HASH_XSET(roby *Roby) {
 func HASH_XDEL(id string) {
 	db, put, err := database.GetRedis("default")
 	if err != nil {
-		fmt.Println(fmt.Sprintf("[ERROR] \033[1;33m redis pool error:%v\033[0m ", err))
+		buf.WriteString(fmt.Sprintf("[ERROR] \033[1;33m redis pool error:%v\033[0m ", err))
 		return
 	}
 	defer database.PutConn(put)
 
 	_, err = db.Do("HDEL", "HTTPX-DATA", id)
 	if err != nil {
-		fmt.Println(fmt.Sprintf("[ERROR] \033[1;33m redis cmd HDEL error:%v\033[0m ", err))
+		buf.WriteString(fmt.Sprintf("[ERROR] \033[1;33m redis cmd HDEL error:%v\033[0m ", err))
 		return
 	}
 }
@@ -227,14 +255,14 @@ func RecoveryData() {
 func HASH_GETALL() []*Roby {
 	db, put, err := database.GetRedis("default")
 	if err != nil {
-		fmt.Println(fmt.Sprintf("[ERROR] \033[1;33m redis pool error:%v\033[0m ", err))
+		buf.WriteString(fmt.Sprintf("[ERROR] \033[1;33m redis pool error:%v\033[0m ", err))
 		return nil
 	}
 	defer database.PutConn(put)
 
 	data, err := db.Do("HGETALL", "HTTPX-DATA")
 	if err != nil {
-		fmt.Println(fmt.Sprintf("[ERROR] \033[1;33m redis cmd HGETALL error:%v\033[0m ", err))
+		buf.WriteString(fmt.Sprintf("[ERROR] \033[1;33m redis cmd HGETALL error:%v\033[0m ", err))
 		return nil
 	}
 
@@ -257,7 +285,7 @@ func pushToRedisList(resp *PayBody) {
 	data, _ := json.Marshal(resp)
 	db, put, err := database.GetRedis("default")
 	if err != nil {
-		fmt.Println(fmt.Sprintf("[ERROR] \033[1;33m redis pool error:%v\033[0m ", err))
+		buf.WriteString(fmt.Sprintf("[ERROR] \033[1;33m redis pool error:%v\033[0m ", err))
 		return
 	}
 	defer database.PutConn(put)
@@ -265,7 +293,7 @@ func pushToRedisList(resp *PayBody) {
 	// 记录错误信息
 	_, err = db.Do("lpush", "HTTPX-LIST", string(data))
 	if err != nil {
-		fmt.Println(fmt.Sprintf("[ERROR] \033[1;33m redis lpush error:%v\033[0m ", err))
+		buf.WriteString(fmt.Sprintf("[ERROR] \033[1;33m redis lpush error:%v\033[0m ", err))
 	}
 }
 

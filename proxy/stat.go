@@ -61,7 +61,7 @@ func (s *stat) tickAndPushImage() {
 					recover()
 				}()
 
-				fmt.Println(fmt.Sprintf("\033[1;32m INFO [%s] 创建image\033[0m ", time.Now().Format(time.RFC3339)))
+				buf.WriteString(fmt.Sprintf("\033[1;32m INFO [%s] 创建image\033[0m ", time.Now().Format(time.RFC3339)))
 				// 获取快照信息
 				key, data := s.image()
 				if key == "" {
@@ -97,7 +97,7 @@ func (s *stat) writeToRedis(key string, data map[string]int64) {
 	// 写入redis
 	_, err = db.Do("HSET", cmds...)
 	if err != nil {
-		fmt.Println(fmt.Sprintf("[ERROR] \033[1;33m redis error:%v\033[0m ", err))
+		buf.WriteString(fmt.Sprintf("[ERROR] \033[1;33m redis error:%v\033[0m ", err))
 	}
 }
 
